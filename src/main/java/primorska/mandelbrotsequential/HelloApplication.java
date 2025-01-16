@@ -1,12 +1,13 @@
 package primorska.mandelbrotsequential;
 
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.control.TextField;
-import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.HBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
@@ -16,7 +17,6 @@ import javafx.scene.image.WritableImage;
 import javafx.animation.AnimationTimer;
 
 import java.awt.image.BufferedImage;
-
 import java.io.File;
 import java.io.IOException;
 import javax.imageio.ImageIO;
@@ -49,52 +49,56 @@ public class HelloApplication extends Application {
         saveButton.setOnAction(e -> handleSave(primaryStage));
 
         HBox controls = new HBox(10, widthField, heightField, resizeButton, saveButton);
-        BorderPane root = new BorderPane();
-        root.setCenter(canvas);
-        root.setBottom(controls);
 
+        // Create AnchorPane as the root container
+        AnchorPane root = new AnchorPane();
+        root.getChildren().addAll(canvas, controls);
+
+        // Anchor the controls at the bottom of the window
+        AnchorPane.setBottomAnchor(controls, 10.0);
+        AnchorPane.setLeftAnchor(controls, 10.0);
+        AnchorPane.setRightAnchor(controls, 10.0);
+
+        // Create the scene and add key event listener for movement
         Scene scene = new Scene(root);
         scene.setOnKeyPressed(event -> {
-            System.out.println("Key Pressed: " + event.getCode());  // Debug line to check which key is pressed
-            switch (event.getCode()) {
-                case ADD:
-                case PLUS:
-                    zoomFactor *= 1.5;
-                    break;
-                case SUBTRACT:
-                case MINUS:
-                    zoomFactor /= 1.5;
-                    break;
-                case UP:
-                    minY -= 0.1 * (maxY - minY) / zoomFactor;
-                    maxY -= 0.1 * (maxY - minY) / zoomFactor;
-                    break;
-                case DOWN:
-                    minY += 0.1 * (maxY - minY) / zoomFactor;
-                    maxY += 0.1 * (maxY - minY) / zoomFactor;
-                    break;
-                case LEFT:
-                    minX -= 0.1 * (maxX - minX) / zoomFactor;
-                    maxX -= 0.1 * (maxX - minX) / zoomFactor;
-                    break;
-                case RIGHT:
-                    minX += 0.1 * (maxX - minX) / zoomFactor;
-                    maxX += 0.1 * (maxX - minX) / zoomFactor;
-                    break;
-                default:
-                    break;
+            if (canvas.isFocused()) {
+                switch (event.getCode()) {
+                    case ADD:
+                    case PLUS:
+                        zoomFactor *= 1.5;
+                        break;
+                    case SUBTRACT:
+                    case MINUS:
+                        zoomFactor /= 1.5;
+                        break;
+                    case UP:
+                        minY -= 0.1 * (maxY - minY) / zoomFactor;
+                        maxY -= 0.1 * (maxY - minY) / zoomFactor;
+                        break;
+                    case DOWN:
+                        minY += 0.1 * (maxY - minY) / zoomFactor;
+                        maxY += 0.1 * (maxY - minY) / zoomFactor;
+                        break;
+                    case LEFT:
+                        minX -= 0.1 * (maxX - minX) / zoomFactor;
+                        maxX -= 0.1 * (maxX - minX) / zoomFactor;
+                        break;
+                    case RIGHT:
+                        minX += 0.1 * (maxX - minX) / zoomFactor;
+                        maxX += 0.1 * (maxX - minX) / zoomFactor;
+                        break;
+                    default:
+                        break;
+                }
+                drawMandelbrot();
             }
-            drawMandelbrot();
-            event.consume(); // Consume the event so it doesn't propagate to other components like the Save button
         });
 
-        // Set focus on the canvas so key events are captured
-        canvas.setFocusTraversable(true);
-        canvas.requestFocus();
-
-        // Add a listener to handle canvas resizing
-        canvas.widthProperty().addListener((obs, oldVal, newVal) -> drawMandelbrot());
-        canvas.heightProperty().addListener((obs, oldVal, newVal) -> drawMandelbrot());
+        // Ensure focus is on canvas after scene is shown
+        primaryStage.setOnShown(event -> {
+            Platform.runLater(() -> canvas.requestFocus());
+        });
 
         primaryStage.setTitle("Mandelbrot Set Explorer");
         primaryStage.setScene(scene);
@@ -168,9 +172,9 @@ public class HelloApplication extends Application {
                 int iteration = 0;
                 int maxIter = 1000;
 
-                while (x*x + y*y <= 4 && iteration < maxIter) {
-                    double xtemp = x*x - y*y + x0;
-                    y = 2*x*y + y0;
+                while (x * x + y * y <= 4 && iteration < maxIter) {
+                    double xtemp = x * x - y * y + x0;
+                    y = 2 * x * y + y0;
                     x = xtemp;
                     iteration++;
                 }
