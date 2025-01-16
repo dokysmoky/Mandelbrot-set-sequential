@@ -55,10 +55,7 @@ public class HelloApplication extends Application {
 
         Scene scene = new Scene(root);
         scene.setOnKeyPressed(event -> {
-
-            // Log which key was pressed
-            System.out.println("Key Pressed: " + event.getCode());
-
+            System.out.println("Key Pressed: " + event.getCode());  // Debug line to check which key is pressed
             switch (event.getCode()) {
                 case ADD:
                 case PLUS:
@@ -89,6 +86,10 @@ public class HelloApplication extends Application {
             }
             drawMandelbrot();
         });
+
+        // Set focus on the canvas so key events are captured
+        canvas.setFocusTraversable(true);
+        canvas.requestFocus();
 
         // Add a listener to handle canvas resizing
         canvas.widthProperty().addListener((obs, oldVal, newVal) -> drawMandelbrot());
