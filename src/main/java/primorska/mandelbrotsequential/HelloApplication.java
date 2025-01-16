@@ -85,6 +85,7 @@ public class HelloApplication extends Application {
                     break;
             }
             drawMandelbrot();
+            event.consume(); // Consume the event so it doesn't propagate to other components like the Save button
         });
 
         // Set focus on the canvas so key events are captured
