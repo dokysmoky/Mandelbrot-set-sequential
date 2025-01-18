@@ -141,6 +141,8 @@ public class HelloApplication extends Application {
         if (file != null) {
             saveImage(file);
         }
+        // Return focus to the canvas after saving
+        canvas.requestFocus();
     }
 
     private void saveImage(File file) {
