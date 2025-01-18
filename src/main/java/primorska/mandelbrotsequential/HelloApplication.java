@@ -14,7 +14,6 @@ import javafx.stage.Stage;
 import javafx.scene.paint.Color;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.scene.image.WritableImage;
-import javafx.animation.AnimationTimer;
 
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -23,7 +22,6 @@ import javax.imageio.ImageIO;
 
 public class HelloApplication extends Application {
 
-    // Define the initial viewport variables
     private double minX = -2.5, maxX = 1.5;
     private double minY = -1.5, maxY = 1.5;
     private double zoomFactor = 1.0;
@@ -96,27 +94,13 @@ public class HelloApplication extends Application {
         });
 
         // Ensure focus is on canvas after scene is shown
-        primaryStage.setOnShown(event -> {
-            Platform.runLater(() -> canvas.requestFocus());
-        });
+        primaryStage.setOnShown(event -> Platform.runLater(() -> canvas.requestFocus()));
 
         primaryStage.setTitle("Mandelbrot Set Explorer");
         primaryStage.setScene(scene);
         primaryStage.show();
 
-        // Limiting the frame rate to 60 FPS
-        AnimationTimer timer = new AnimationTimer() {
-            private long lastUpdate = 0;
-
-            @Override
-            public void handle(long now) {
-                if (now - lastUpdate >= 1_000_000_000 / 60) { // 60 FPS
-                    lastUpdate = now;
-                    drawMandelbrot();
-                }
-            }
-        };
-        timer.start();
+        drawMandelbrot();
     }
 
     private void handleResize() {
@@ -148,15 +132,17 @@ public class HelloApplication extends Application {
     private void saveImage(File file) {
         WritableImage writableImage = new WritableImage((int) canvas.getWidth(), (int) canvas.getHeight());
         canvas.snapshot(null, writableImage);
-        BufferedImage bufferedImage = SwingFXUtils.fromFXImage(writableImage, null);
         try {
-            ImageIO.write(SwingFXUtils.fromFXImage(writableImage, null), "png", file);
+            BufferedImage bufferedImage = SwingFXUtils.fromFXImage(writableImage, null);
+            ImageIO.write(bufferedImage, "png", file);
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
     private void drawMandelbrot() {
+        long startTime = System.nanoTime(); // Start timing
+
         gc.clearRect(0, 0, canvas.getWidth(), canvas.getHeight());
 
         double width = canvas.getWidth();
@@ -190,6 +176,12 @@ public class HelloApplication extends Application {
                 gc.getPixelWriter().setColor(px, py, color);
             }
         }
+
+        long endTime = System.nanoTime(); // End timing
+        double elapsedTimeInMs = (endTime - startTime) / 1_000_000.0; // Convert to milliseconds
+
+        // Log the elapsed time
+        System.out.printf("Mandelbrot set drawn in %.2f ms%n", elapsedTimeInMs);
     }
 
     public static void main(String[] args) {
