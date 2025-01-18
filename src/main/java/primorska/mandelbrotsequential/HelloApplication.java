@@ -103,6 +103,17 @@ public class HelloApplication extends Application {
         drawMandelbrot();
     }
 
+    /*private void handleResize() {
+        try {
+            imageWidth = Integer.parseInt(widthField.getText());
+            imageHeight = Integer.parseInt(heightField.getText());
+            canvas.setWidth(imageWidth);
+            canvas.setHeight(imageHeight);
+            drawMandelbrot();
+        } catch (NumberFormatException e) {
+            System.out.println("Invalid width or height.");
+        }
+    }*/
     private void handleResize() {
         try {
             imageWidth = Integer.parseInt(widthField.getText());
@@ -110,6 +121,9 @@ public class HelloApplication extends Application {
             canvas.setWidth(imageWidth);
             canvas.setHeight(imageHeight);
             drawMandelbrot();
+
+            // Return focus to the canvas after resizing
+            canvas.requestFocus();
         } catch (NumberFormatException e) {
             System.out.println("Invalid width or height.");
         }
