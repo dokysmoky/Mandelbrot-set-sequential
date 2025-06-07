@@ -151,7 +151,7 @@ public class HelloApplication extends Application {
         }
     }
 
-    private void drawMandelbrot() {
+    /*private void drawMandelbrot() {
         long startTime = System.nanoTime();
 
         gc.clearRect(0, 0, canvas.getWidth(), canvas.getHeight());
@@ -187,6 +187,52 @@ public class HelloApplication extends Application {
         long endTime = System.nanoTime();
         double elapsedTimeInMs = (endTime - startTime) / 1_000_000.0;
         System.out.printf("Mandelbrot set drawn in %.2f ms%n", elapsedTimeInMs);
+    }*/
+    private void drawMandelbrot() {
+        long startTime = System.nanoTime();
+
+        double width = canvas.getWidth();
+        double height = canvas.getHeight();
+        double rangeX = (maxX - minX) / zoomFactor;
+        double rangeY = (maxY - minY) / zoomFactor;
+        int maxIter = 1000;
+
+        // Run computation in a background thread
+        new Thread(() -> {
+            WritableImage image = new WritableImage((int) width, (int) height);
+
+            for (int px = 0; px < width; px++) {
+                for (int py = 0; py < height; py++) {
+                    double x0 = minX + px * rangeX / width;
+                    double y0 = minY + py * rangeY / height;
+                    double x = 0.0, y = 0.0;
+                    int iteration = 0;
+
+                    while (x * x + y * y <= 4 && iteration < maxIter) {
+                        double xtemp = x * x - y * y + x0;
+                        y = 2 * x * y + y0;
+                        x = xtemp;
+                        iteration++;
+                    }
+
+                    Color color = (iteration < maxIter)
+                            ? Color.hsb(280 - ((double) iteration / maxIter) * 280, 0.8, 1.0 - ((double) iteration / maxIter) * 0.8)
+                            : Color.BLACK;
+
+                    image.getPixelWriter().setColor(px, py, color);
+                }
+            }
+
+            // Once image is ready, draw it on the JavaFX thread
+            Platform.runLater(() -> {
+                gc.clearRect(0, 0, width, height);
+                gc.drawImage(image, 0, 0);
+                long endTime = System.nanoTime();
+                double elapsedTimeInMs = (endTime - startTime) / 1_000_000.0;
+                System.out.printf("Mandelbrot set drawn in %.2f ms (threaded)%n", elapsedTimeInMs);
+            });
+
+        }).start();
     }
 
     public static void main(String[] args) {
