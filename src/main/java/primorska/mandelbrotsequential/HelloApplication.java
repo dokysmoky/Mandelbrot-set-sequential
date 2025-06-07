@@ -234,8 +234,61 @@ public class HelloApplication extends Application {
 
         }).start();
     }
+    private static void generateAndSaveImage(int width, int height) {
+        double minX = -2.5, maxX = 1.5;
+        double minY = -1.5, maxY = 1.5;
+        double zoomFactor = 1.0;
+        int maxIter = 1000;
 
-    public static void main(String[] args) {
-        launch(args);
+        WritableImage image = new WritableImage(width, height);
+
+        for (int px = 0; px < width; px++) {
+            for (int py = 0; py < height; py++) {
+                double x0 = minX + px * (maxX - minX) / width / zoomFactor;
+                double y0 = minY + py * (maxY - minY) / height / zoomFactor;
+                double x = 0.0, y = 0.0;
+                int iteration = 0;
+
+                while (x * x + y * y <= 4 && iteration < maxIter) {
+                    double xtemp = x * x - y * y + x0;
+                    y = 2 * x * y + y0;
+                    x = xtemp;
+                    iteration++;
+                }
+
+                Color color = (iteration < maxIter)
+                        ? Color.hsb(280 - ((double) iteration / maxIter) * 280, 0.8, 1.0 - ((double) iteration / maxIter) * 0.8)
+                        : Color.BLACK;
+
+                image.getPixelWriter().setColor(px, py, color);
+            }
+        }
+
+        File output = new File("mandelbrot.png");
+        try {
+            BufferedImage bufferedImage = SwingFXUtils.fromFXImage(image, null);
+            ImageIO.write(bufferedImage, "png", output);
+            System.out.println("Image saved to mandelbrot.png");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
+
+
+   public static void main(String[] args) {
+       boolean guiMode = true;
+       for (String arg : args) {
+           if (arg.equalsIgnoreCase("--no-gui")) {
+               guiMode = false;
+               break;
+           }
+       }
+
+       if (guiMode) {
+           launch(args); // Launch GUI as before
+       } else {
+           System.out.println("Running in non-GUI mode...");
+           generateAndSaveImage(800, 600); // Default image size
+       }
+   }
 }
