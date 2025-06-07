@@ -15,11 +15,20 @@ import javafx.scene.layout.HBox;
 import javafx.scene.paint.Color;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
-
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+
+import primorska.mandelbrotsequential.distributed.Task;
+import primorska.mandelbrotsequential.distributed.Result;
+
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.net.Socket;
+import java.util.ArrayList;
+import java.util.List;
+
 
 public class HelloApplication extends Application {
 
@@ -56,7 +65,7 @@ public class HelloApplication extends Application {
         Button saveButton = new Button("Save");
 
         modeBox = new ComboBox<>();
-        modeBox.getItems().addAll("Sequential", "Parallel");
+        modeBox.getItems().addAll("Sequential", "Parallel","Distributed");
         modeBox.setValue("Sequential");
 
         resizeButton.setOnAction(e -> handleResize());
@@ -124,82 +133,133 @@ public class HelloApplication extends Application {
         timer.start();
     }
 
-    private void drawMandelbrot(boolean isParallel) {
-        long startTime = System.nanoTime();
-        int width = (int) canvas.getWidth();
-        int height = (int) canvas.getHeight();
-        double rangeX = (maxX - minX) / zoomFactor;
-        double rangeY = (maxY - minY) / zoomFactor;
-        int maxIter = 1000;
 
-        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+   private void drawMandelbrot(boolean isParallel) {
+       long startTime = System.nanoTime();
+       int width = (int) canvas.getWidth();
+       int height = (int) canvas.getHeight();
+       double rangeX = (maxX - minX) / zoomFactor;
+       double rangeY = (maxY - minY) / zoomFactor;
+       int maxIter = 1000;
 
-        Runnable compute = () -> {
-            if (isParallel) {
-                int cores = Runtime.getRuntime().availableProcessors();
-                Thread[] threads = new Thread[cores];
-                for (int t = 0; t < cores; t++) {
-                    final int threadId = t;
-                    threads[t] = new Thread(() -> {
-                        for (int y = threadId; y < height; y += cores) {
-                            for (int x = 0; x < width; x++) {
-                                double x0 = minX + x * rangeX / width;
-                                double y0 = minY + y * rangeY / height;
-                                double zx = 0.0, zy = 0.0;
-                                int iter = 0;
-                                while (zx * zx + zy * zy <= 4 && iter < maxIter) {
-                                    double tmp = zx * zx - zy * zy + x0;
-                                    zy = 2 * zx * zy + y0;
-                                    zx = tmp;
-                                    iter++;
-                                }
-                                int rgb = (iter < maxIter)
-                                        ? javafxColorToRGB(Color.hsb(280 - ((double) iter / maxIter) * 280, 0.8, 1.0 - ((double) iter / maxIter) * 0.8))
-                                        : 0xFF000000;
-                                image.setRGB(x, y, rgb);
-                            }
-                        }
-                    });
-                    threads[t].start();
-                }
-                for (Thread thread : threads) {
-                    try {
-                        thread.join();
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                }
-            } else {
-                for (int y = 0; y < height; y++) {
-                    for (int x = 0; x < width; x++) {
-                        double x0 = minX + x * rangeX / width;
-                        double y0 = minY + y * rangeY / height;
-                        double zx = 0.0, zy = 0.0;
-                        int iter = 0;
-                        while (zx * zx + zy * zy <= 4 && iter < maxIter) {
-                            double tmp = zx * zx - zy * zy + x0;
-                            zy = 2 * zx * zy + y0;
-                            zx = tmp;
-                            iter++;
-                        }
-                        int rgb = (iter < maxIter)
-                                ? javafxColorToRGB(Color.hsb(280 - ((double) iter / maxIter) * 280, 0.8, 1.0 - ((double) iter / maxIter) * 0.8))
-                                : 0xFF000000;
-                        image.setRGB(x, y, rgb);
-                    }
+       boolean isDistributed = modeBox.getValue().equals("Distributed");
+       BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+
+       Runnable compute = () -> {
+           if (isDistributed) {
+               drawDistributed(image, width, height, maxIter);
+           } else if (isParallel) {
+               int cores = Runtime.getRuntime().availableProcessors();
+               Thread[] threads = new Thread[cores];
+               for (int t = 0; t < cores; t++) {
+                   final int threadId = t;
+                   threads[t] = new Thread(() -> {
+                       for (int y = threadId; y < height; y += cores) {
+                           for (int x = 0; x < width; x++) {
+                               double x0 = minX + x * rangeX / width;
+                               double y0 = minY + y * rangeY / height;
+                               double zx = 0.0, zy = 0.0;
+                               int iter = 0;
+                               while (zx * zx + zy * zy <= 4 && iter < maxIter) {
+                                   double tmp = zx * zx - zy * zy + x0;
+                                   zy = 2 * zx * zy + y0;
+                                   zx = tmp;
+                                   iter++;
+                               }
+                               int rgb = (iter < maxIter)
+                                       ? javafxColorToRGB(Color.hsb(280 - ((double) iter / maxIter) * 280, 0.8, 1.0 - ((double) iter / maxIter) * 0.8))
+                                       : 0xFF000000;
+                               image.setRGB(x, y, rgb);
+                           }
+                       }
+                   });
+                   threads[t].start();
+               }
+               for (Thread thread : threads) {
+                   try {
+                       thread.join();
+                   } catch (InterruptedException e) {
+                       e.printStackTrace();
+                   }
+               }
+           } else {
+               for (int y = 0; y < height; y++) {
+                   for (int x = 0; x < width; x++) {
+                       double x0 = minX + x * rangeX / width;
+                       double y0 = minY + y * rangeY / height;
+                       double zx = 0.0, zy = 0.0;
+                       int iter = 0;
+                       while (zx * zx + zy * zy <= 4 && iter < maxIter) {
+                           double tmp = zx * zx - zy * zy + x0;
+                           zy = 2 * zx * zy + y0;
+                           zx = tmp;
+                           iter++;
+                       }
+                       int rgb = (iter < maxIter)
+                               ? javafxColorToRGB(Color.hsb(280 - ((double) iter / maxIter) * 280, 0.8, 1.0 - ((double) iter / maxIter) * 0.8))
+                               : 0xFF000000;
+                       image.setRGB(x, y, rgb);
+                   }
+               }
+           }
+
+           Platform.runLater(() -> {
+               WritableImage fxImage = SwingFXUtils.toFXImage(image, null);
+               gc.clearRect(0, 0, width, height);
+               gc.drawImage(fxImage, 0, 0);
+               System.out.printf("Rendered in %.2f ms [%s]%n", (System.nanoTime() - startTime) / 1e6,
+                       isDistributed ? "Distributed" : (isParallel ? "Parallel" : "Sequential"));
+           });
+       };
+
+       new Thread(compute).start();
+   }
+    private void drawDistributed(BufferedImage image, int width, int height, int maxIter) {
+        try {
+            List<String> workers = List.of(
+                    "localhost:5000",
+                    "localhost:5001"
+            );
+
+            int rowsPerWorker = height / workers.size();
+            List<Result> results = new ArrayList<>();
+
+            for (int i = 0; i < workers.size(); i++) {
+                String[] parts = workers.get(i).split(":");
+                String host = parts[0];
+                int port = Integer.parseInt(parts[1]);
+
+                int startY = i * rowsPerWorker;
+                int endY = (i == workers.size() - 1) ? height : startY + rowsPerWorker;
+
+                Task task = new Task(startY, endY, width, height, minX, maxX, minY, maxY, zoomFactor, maxIter);
+
+                try (Socket socket = new Socket(host, port)) {
+                    ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
+                    ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
+
+                    out.writeObject(task);
+                    out.flush();
+
+                    Result result = (Result) in.readObject();
+                    results.add(result);
                 }
             }
 
-            Platform.runLater(() -> {
-                WritableImage fxImage = SwingFXUtils.toFXImage(image, null);
-                gc.clearRect(0, 0, width, height);
-                gc.drawImage(fxImage, 0, 0);
-                System.out.printf("Rendered in %.2f ms [%s]%n", (System.nanoTime() - startTime) / 1e6,
-                        isParallel ? "Parallel" : "Sequential");
-            });
-        };
+            for (Result result : results) {
 
-        new Thread(compute).start();
+                for (int i = 0; i < result.rgbValues.length; i++) {
+                    int y = result.startY + (i / width);
+                    int x = i % width;
+                    image.setRGB(x, y, result.rgbValues[i]);
+                }
+
+
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private void handleResize() {
