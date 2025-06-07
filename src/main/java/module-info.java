@@ -3,7 +3,7 @@ module primorska.mandelbrotsequential {
     requires javafx.fxml;
     requires javafx.web;
     requires javafx.graphics;
-    requires javafx.swing;  // Add this line
+    requires javafx.swing;
     requires java.desktop;
     requires org.controlsfx.controls;
     requires com.dlsc.formsfx;

@@ -1,5 +1,6 @@
 package primorska.mandelbrotsequential;
 
+import javafx.animation.AnimationTimer;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.scene.Scene;
@@ -32,12 +33,15 @@ public class HelloApplication extends Application {
     private int imageWidth = 800;
     private int imageHeight = 600;
 
+    private boolean needsRedraw = true;
+    private long lastDrawTime = 0;
+    private final long frameInterval = 16_666_667; // ~60 FPS in nanoseconds
+
     @Override
     public void start(Stage primaryStage) {
         canvas = new Canvas(imageWidth, imageHeight);
         gc = canvas.getGraphicsContext2D();
 
-        // Create UI elements for size input and saving
         widthField = new TextField(String.valueOf(imageWidth));
         heightField = new TextField(String.valueOf(imageHeight));
         Button resizeButton = new Button("Resize");
@@ -48,16 +52,12 @@ public class HelloApplication extends Application {
 
         HBox controls = new HBox(10, widthField, heightField, resizeButton, saveButton);
 
-        // Create AnchorPane as the root container
         AnchorPane root = new AnchorPane();
         root.getChildren().addAll(canvas, controls);
-
-        // Anchor the controls at the bottom of the window
         AnchorPane.setBottomAnchor(controls, 10.0);
         AnchorPane.setLeftAnchor(controls, 10.0);
         AnchorPane.setRightAnchor(controls, 10.0);
 
-        // Create the scene and add key event listener for movement
         Scene scene = new Scene(root);
         scene.setOnKeyPressed(event -> {
             if (canvas.isFocused()) {
@@ -89,40 +89,36 @@ public class HelloApplication extends Application {
                     default:
                         break;
                 }
-                drawMandelbrot();
+                needsRedraw = true;
             }
         });
 
-        // Ensure focus is on canvas after scene is shown
         primaryStage.setOnShown(event -> Platform.runLater(() -> canvas.requestFocus()));
-
         primaryStage.setTitle("Mandelbrot Set Explorer");
         primaryStage.setScene(scene);
         primaryStage.show();
 
-        drawMandelbrot();
+        // Animation timer to cap drawing to 60 FPS
+        AnimationTimer timer = new AnimationTimer() {
+            @Override
+            public void handle(long now) {
+                if (needsRedraw && (now - lastDrawTime) >= frameInterval) {
+                    drawMandelbrot();
+                    lastDrawTime = now;
+                    needsRedraw = false;
+                }
+            }
+        };
+        timer.start();
     }
 
-    /*private void handleResize() {
-        try {
-            imageWidth = Integer.parseInt(widthField.getText());
-            imageHeight = Integer.parseInt(heightField.getText());
-            canvas.setWidth(imageWidth);
-            canvas.setHeight(imageHeight);
-            drawMandelbrot();
-        } catch (NumberFormatException e) {
-            System.out.println("Invalid width or height.");
-        }
-    }*/
     private void handleResize() {
         try {
             imageWidth = Integer.parseInt(widthField.getText());
             imageHeight = Integer.parseInt(heightField.getText());
             canvas.setWidth(imageWidth);
             canvas.setHeight(imageHeight);
-            drawMandelbrot();
-
-            // Return focus to the canvas after resizing
+            needsRedraw = true;
             canvas.requestFocus();
         } catch (NumberFormatException e) {
             System.out.println("Invalid width or height.");
@@ -141,7 +137,6 @@ public class HelloApplication extends Application {
         if (file != null) {
             saveImage(file);
         }
-        // Return focus to the canvas after saving
         canvas.requestFocus();
     }
 
@@ -157,7 +152,7 @@ public class HelloApplication extends Application {
     }
 
     private void drawMandelbrot() {
-        long startTime = System.nanoTime(); // Start timing
+        long startTime = System.nanoTime();
 
         gc.clearRect(0, 0, canvas.getWidth(), canvas.getHeight());
 
@@ -181,22 +176,16 @@ public class HelloApplication extends Application {
                     iteration++;
                 }
 
-                Color color;
-                if (iteration < maxIter) {
-                    double t = (double) iteration / maxIter;
-                    color = Color.hsb(280 - t * 280, 0.8, 1.0 - t * 0.8);
-                } else {
-                    color = Color.BLACK;
-                }
+                Color color = (iteration < maxIter)
+                        ? Color.hsb(280 - ((double) iteration / maxIter) * 280, 0.8, 1.0 - ((double) iteration / maxIter) * 0.8)
+                        : Color.BLACK;
 
                 gc.getPixelWriter().setColor(px, py, color);
             }
         }
 
-        long endTime = System.nanoTime(); // End timing
-        double elapsedTimeInMs = (endTime - startTime) / 1_000_000.0; // Convert to milliseconds
-
-        // Log the elapsed time
+        long endTime = System.nanoTime();
+        double elapsedTimeInMs = (endTime - startTime) / 1_000_000.0;
         System.out.printf("Mandelbrot set drawn in %.2f ms%n", elapsedTimeInMs);
     }
 
